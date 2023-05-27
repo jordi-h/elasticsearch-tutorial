@@ -1,0 +1,298 @@
+/////////////////////////////////////////////////////////////
+///////////////////////  General Info  //////////////////////
+/////////////////////////////////////////////////////////////
+
+// Retrieve cluster health
+GET _cluster/health
+
+// Retrieve nodes stats
+GET _nodes/stats
+
+
+/////////////////////////////////////////////////////////////
+//////////////  Create and Populate an Index  ///////////////
+/////////////////////////////////////////////////////////////
+
+// Create an index
+PUT favorite_candy
+{
+  "mappings": {
+    "properties": {
+      "first_name": { "type": "text" },
+      "last_name": { "type": "text" },
+      "age": { "type": "integer" },
+      "city": { "type": "text", "fields": { "keyword": { "type": "keyword" } } },
+      "country": { "type": "text", "fields": { "keyword": { "type": "keyword" } } },
+      "favorite_candy_reviews": {
+        "type": "nested",
+        "properties": {
+          "candy_name": { "type": "text", "fields": { "keyword": { "type": "keyword" } } },
+          "review_text": { "type": "text" }
+        }
+      },
+      "number_of_reviews": { "type": "integer" }
+    }
+  }
+}
+// "city": { "type": "keyword" },
+
+// Add entries to the index using _bulk endpoint
+POST favorite_candy/_bulk
+{ "index" : { "_id" : "1" } }
+{ "first_name": "Aly", "last_name": "Abdelaleem", "age": 27, "city": "Cairo", "country": "Egypt", "favorite_candy_reviews": [{"candy_name": "Sour Skittles", "review_text": "Absolutely love the flavor!"}], "number_of_reviews": 3 }
+{ "index" : { "_id" : "2" } }
+{ "first_name": "Guillaume", "last_name": "Delporte", "age": 22, "city": "Paris", "country": "France", "favorite_candy_reviews": [{"candy_name": "Gummy bears", "review_text": "A classic treat with a variety of flavors."}], "number_of_reviews": 5 }
+{ "index" : { "_id" : "3" } }
+{ "first_name": "Jordi", "last_name": "Hoorelbeke", "age": 28, "city": "Barcelona", "country": "Spain", "favorite_candy_reviews": [{"candy_name": "Dragibus", "review_text": "Colorful and tasty, my all time favorite!"}], "number_of_reviews": 7 }
+{ "index" : { "_id" : "4" } }
+{ "first_name": "Jimmy", "last_name": "McGill", "age": 41, "city": "Albuquerque", "country": "United States", "favorite_candy_reviews": [{"candy_name": "Jelly Belly Beans", "review_text": "So many unique flavors to try!"}], "number_of_reviews": 10 }
+{ "index" : { "_id" : "5" } }
+{ "first_name": "Chuck", "last_name": "McGill", "age": 58, "city": "El Paso", "country": "United States", "favorite_candy_reviews": [{"candy_name": "Gummy bears", "review_text": "Love the flavor nearly as much as I love Law."}], "number_of_reviews": 15 }
+
+// Retrieve all entries in the index
+GET favorite_candy/_search
+{
+  "query": {
+    "match_all": {}
+  }
+}
+
+/////////////////////////////////////////////////////////////
+//////////////////////  Full-text search  ///////////////////
+/////////////////////////////////////////////////////////////
+
+// A basic technique for searching text data. It allows users to search for a term within a field.
+GET favorite_candy/_search
+{
+  "query": {
+    "match": {
+      "city": "El"
+    }
+  }
+}
+
+/////////////////////////////////////////////////////////////
+////////////////////////  Fuzzy search  /////////////////////
+/////////////////////////////////////////////////////////////
+// This technique allows for search queries to find results that are not an exact match to the query term, accounting for typos and misspellings.
+GET favorite_candy/_search
+{
+  "query": {
+    "fuzzy": {
+      "first_name": {
+        "value": "Blly",
+        "fuzziness": 2
+      }
+    }
+  }
+}
+
+/////////////////////////////////////////////////////////////
+//////////////////////  Proximity search  ///////////////////
+/////////////////////////////////////////////////////////////
+// This search is used to find words or phrases that are near each other.
+GET favorite_candy/_search
+{
+  "query": {
+    "nested": {
+      "path": "favorite_candy_reviews",
+      "query": {
+        "match_phrase": {
+          "favorite_candy_reviews.review_text": {
+            "query": "love flavor",
+            "slop": 2
+          }
+        }
+      }
+    }
+  }
+}
+
+/////////////////////////////////////////////////////////////
+/////////////////////  Aggregation search  //////////////////
+/////////////////////////////////////////////////////////////
+// Technique for grouping, summarizing, and analyzing data.
+GET favorite_candy/_search
+{
+  "size": 0,
+  "aggs": {
+    "favorite_candies": {
+      "nested": {
+        "path": "favorite_candy_reviews"
+      },
+      "aggs": {
+        "top_candies": {
+          "terms": {
+            "field": "favorite_candy_reviews.candy_name.keyword",
+            "size": 1
+          }
+        }
+      }
+    }
+  }
+}
+
+/////////////////////////////////////////////////////////////
+//////////////////////  Boosting/Scoring  ///////////////////
+/////////////////////////////////////////////////////////////
+// These techniques can be used to modify the importance or relevance of certain documents in the search results.
+// Boosting in a Boolean query
+GET favorite_candy/_search
+{
+  "query": {
+    "nested": {
+      "path": "favorite_candy_reviews",
+      "query": {
+        "bool": {
+          "should": [
+            {
+              "match": {
+                "favorite_candy_reviews.review_text": {
+                  "query": "unique flavors",
+                  "boost": 2
+                }
+              }
+            },
+            {
+              "match": {
+                "first_name": "Jimmy"
+              }
+            }
+          ]
+        }
+      }
+    }
+  }
+}
+
+// Boosting with a function score
+GET favorite_candy/_search
+{
+  "query": {
+    "function_score": {
+      "query": { "match_all": {} },
+      "boost": "5",
+      "functions": [
+        {
+          "filter": { "match_all": {} },
+          "field_value_factor": {
+            "field": "number_of_reviews",
+            "modifier": "sqrt",
+            "factor": 1.2
+          }
+        }
+      ],
+      "max_boost": 42,
+      "score_mode": "max",
+      "boost_mode": "multiply"
+    }
+  }
+}
+
+/////////////////////////////////////////////////////////////
+////////////////////////  Range search  /////////////////////
+/////////////////////////////////////////////////////////////
+// This allows for searching within a certain numerical or date range.
+GET favorite_candy/_search
+{
+  "_source": ["first_name", "last_name"],
+  "query": {
+    "range": {
+      "age": {
+        "gte": 20,
+        "lte": 30
+      }
+    }
+  }
+}
+
+/////////////////////////////////////////////////////////////
+//////////////////////  Compound Queries  ///////////////////
+/////////////////////////////////////////////////////////////
+// Query that combines multiple queries in a logical manner.
+GET favorite_candy/_search
+{
+  "query": {
+    "bool": {
+      "must": [
+        { "match": { "last_name": "McGill" } },
+        { "range": { "age": { "gte": 50 } } }
+      ]
+    }
+  }
+}
+
+/////////////////////////////////////////////////////////////
+////////////////////////  Sorting  //////////////////////////
+/////////////////////////////////////////////////////////////
+// This organizes the search results according to certain criteria.
+GET favorite_candy/_search
+{
+  "query": { "match_all": {} },
+  "sort": [
+    { "age": "desc" }
+  ]
+}
+
+/////////////////////////////////////////////////////////////
+////////////////////  Highlighting  /////////////////////////
+/////////////////////////////////////////////////////////////
+// This feature can highlight the part of a document that matched a query.
+GET favorite_candy/_search
+{
+  "query": { "match": { "last_name": "McGill" } },
+  "highlight": {
+    "fields": {
+      "last_name": {}
+    }
+  }
+}
+
+/////////////////////////////////////////////////////////////
+//////////////////////  Filtering  //////////////////////////
+/////////////////////////////////////////////////////////////
+// This technique can remove documents that do not meet certain criteria.
+GET favorite_candy/_search
+{
+  "query": {
+    "bool": {
+      "filter": [
+        { "term":  { "age": 27 } }
+      ]
+    }
+  }
+}
+
+/////////////////////////////////////////////////////////////
+////////////  Wildcard and Regexp Searches  /////////////////
+/////////////////////////////////////////////////////////////
+// These are methods for searching text data that provide more flexibility than a simple match search. They allow for pattern matching.
+GET favorite_candy/_search
+{
+  "query": {
+    "wildcard": {
+      "last_name": {
+        "value": "*gill"
+      }
+    }
+  }
+}
+
+GET favorite_candy/_search
+{
+  "query": {
+    "regexp": {
+      "first_name": {
+      "value": "j.*",
+      "flags" : "ALL",
+      "case_insensitive": true
+      }
+    }
+  }
+}
+
+/////////////////////////////////////////////////////////////
+////////////          Delete index          /////////////////
+/////////////////////////////////////////////////////////////
+
+DELETE favorite_candy
