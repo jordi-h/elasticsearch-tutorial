@@ -2,7 +2,7 @@
     <img src="elastic-logo.png" width="600">
 </div>
 
-# elasticsearch-tutorial
+# Elasticsearch Tutorial
 
 With the continuous growth of Internet usage and data proliferation in the contemporary era, the need for efficient data solutions has become increasingly critical, contributing to the rapid expansion of this field. Traditional database management systems, while having been the preferred choice for decades, may face challenges in managing the substantial volumes of structured or unstructured data generated daily.
 
